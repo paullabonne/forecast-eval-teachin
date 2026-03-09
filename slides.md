@@ -355,12 +355,12 @@ bl.plot()
 
 ## Unstable environments: the stationarity problem
 
-All previous tests assume the data-generating process is **covariance-stationary** — the mean and autocovariance of the forecast error sequence do not change over time.
+All previous tests require that the **object of interest is covariance-stationary** — its mean and autocovariance do not change over time. What that object is depends on the test: the forecast error for bias tests, the loss differential $d_t$ for Diebold-Mariano, revision sequences for weak efficiency, etc.
 
 In practice this often fails:
 
-- **Structural breaks** — policy regime changes, financial crises, pandemics shift the error distribution
-- **Evolving models** — forecasting frameworks are updated, creating non-stationary error dynamics
+- **Structural breaks** — policy regime changes, financial crises, pandemics shift the distribution
+- **Evolving models** — forecasting frameworks are updated, changing error dynamics
 - **Time-varying volatility** — the Great Moderation, post-COVID inflation
 
 A full-sample test averages over all regimes. A bias that appeared after 2020 is diluted by 15 years of unbiased forecasts — the test says "no problem" when the *current* forecast process is broken.
