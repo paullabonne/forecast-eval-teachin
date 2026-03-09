@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.bankofengland.co.uk)",
+      "Bash(conda env:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(conda create:*)",
+      "Bash(conda activate:*)",
+      "Bash(ls -la /tmp/forecast_evaluation/src/forecast_evaluation/tests/*.py)",
+      "Bash(ls:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl:*)",
+      "Bash(marp:*)",
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(brew:*)",
+      "Bash(brew link:*)"
+    ]
+  }
+}
