@@ -14,7 +14,9 @@
       "Bash(npm install:*)",
       "Bash(npx:*)",
       "Bash(brew:*)",
-      "Bash(brew link:*)"
+      "Bash(brew link:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

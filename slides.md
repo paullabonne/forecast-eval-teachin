@@ -79,36 +79,61 @@ style: |
 
 ## Agenda
 
-| # | Topic |
-|---|-------|
-| 1 | Storing macroeconomic forecasts |
-| 2 | Three dimensions of forecast quality |
-| 3 | Benchmark models |
-| 5 | Sniff tests |
-| 6 | Accuracy|
-| 7 | Bias |
-| 8 | Efficiency |
-| 9 | Unstable environments and small samples |
-| 10 | Live demo |
+<style scoped>table { font-size: 20px; }</style>
+
+| # | Topic | |
+|---|-------|-|
+| 0 | A quick primer on Python | *Packages, classes, instances* |
+| 1 | Storing macroeconomic forecasts | *Data format and vintages* |
+| 2 | Three dimensions of forecast quality | *Accuracy, bias, efficiency* |
+| 3 | Sniff tests | *Visual diagnostics* |
+| 4 | Accuracy | *RMSE, MAE, Diebold-Mariano* |
+| 5 | Benchmark models | *Random walk, AR(p)* |
+| 6 | Bias | *Mean error, Mincer-Zarnowitz* |
+| 7 | Efficiency | *Weak (Nordhaus) and strong (Blanchard-Leigh)* |
+| 8 | Unstable environments | *Rolling analysis, fluctuation tests* |
+| 9 | Dashboard | *Interactive exploration* |
+| 10 | **Live demo** | |
+
+---
+
+## A quick primer on Python
+
+**Environment & packages** — Python uses *virtual environments* to keep project dependencies separate. You install packages with `pip`:
+```
+pip install forecast_evaluation
+```
+
+**Importing** — load a package into your script, optionally with a short alias:
+```python
+import forecast_evaluation as fe   # now use fe.something()
+```
+
+**Classes & instances** — a *class* is a blueprint; an *instance* is a concrete copy built from it. `ForecastData` is the blueprint; `data` below is your instance, holding your specific forecasts:
+```python
+data = fe.ForecastData(your_outturns, your forecasts)  # create an instance
+data.forecasts            # attribute: the data it holds
+data.add_benchmarks(...)  # method: a function that works only on the instance
+```
+
 ---
 
 ## Storing macroeconomic forecasts
 
-Each row in your dataframe should answer: *"What value did source **S** assign to variable **Y** for period **t**, as of vintage **v**?"*
+Each row answers: *"What value did source **S** assign to variable **Y** for period **t**, as of vintage **v**?"*
 
-<style scoped>table { font-size: 18px; } table td, table th { padding: 4px 8px; }</style>
+<style scoped>table { font-size: 17px; } table td, table th { padding: 4px 8px; }</style>
 
 | Column | What it means | Examples |
 |--------|--------------|---------|
 | `variable` | What is being forecast | `cpi`, `gdpkp` |
 | `metric` | Transformation applied | `yoy`, `pop`, `levels` |
-| `frequency` | Data frequency | `Q` (quarterly), `M` (monthly) |
+| `frequency` | Data frequency | `Q`, `M` |
 | `date` | *Which period* the value refers to | `2022-03-31` = 2022Q1 |
-| `vintage_date` | *When* the number was known / published | `2021-09-30` = as of 2021Q3 |
-| `source` | Who produced it — often a model, sometimes a survey | `AR(p)`, `BVAR`, `SPF` |
-| `forecast_horizon` | Periods between vintage and date | `+4` = four quarters ahead; `−k` = $k$th data revision |
+| `vintage_date` | *When* the number was known | `2021-09-30` = as of 2021Q3 |
+| `source` | Who produced it | `AR(p)`, `BVAR`, `SPF` |
+| `forecast_horizon` | Periods between vintage and date | `+4` = 4Q ahead; `−k` = revision |
 | `value` | The number itself | `0.064` |
-
 
 ---
 
@@ -132,12 +157,12 @@ Each row in your dataframe should answer: *"What value did source **S** assign t
   2015-06-30   2015-12-31    cpi         Q    pop                -2  0.0203
 ```
 
-###### Python code:
 ```python
 import forecast_evaluation as fe
 
-forecast_data = fe.ForecastData(
-    forecasts_data=your_forecasts, outturns_data=your_outturns
+data = fe.ForecastData(
+    forecasts_data=your_forecasts,
+    outturns_data=your_outturns,
 )
 ```
 
@@ -164,9 +189,32 @@ $$\varepsilon(y;k)_{t|t-h} := y_{t|t+1+k} - \hat{y}_{t|t-h}$$
 where the outturn vintage $k$ controls which data release is used as the "truth".
 We often set $k=12$ (~3 years after the reference quarter).
 
-**Serial correlation at horizons $h > 1$**: even under an optimal forecast, $h$-step-ahead errors follow an MA$(h-1)$ process. 
+**Serial correlation at horizons $h > 1$**: even under an optimal forecast, $h$-step-ahead errors follow an MA$(h-1)$ process.
 
 Standard errors in tests must therefore be HAC-robust (e.g. Newey-West with at least $h-1$ lags).
+
+---
+
+## Some sniff tests
+
+```python
+# Hedgehog: each line = one vintage; dark line = outturns
+fe.plot_hedgehog(
+    data=data, variable="cpisa",
+    forecast_source="mpr", metric="yoy",
+    frequency="Q", k=12,
+)
+
+# Errors over time (with moving-average smoothing)
+fe.plot_errors_across_time(
+    data=data, variable="cpisa",
+    metric="yoy", horizons=4, sources="mpr",
+    frequency="Q", k=12, ma_window=4,
+)
+```
+
+- **Hedgehog chart**: overlay all forecast vintages against outturns — reveals persistent over/under-shooting
+- **Errors over time**: spot structural breaks, outlier episodes, trending errors
 
 ---
 
@@ -174,57 +222,60 @@ Standard errors in tests must therefore be HAC-robust (e.g. Newey-West with at l
 
 $$\text{RMSE}_h = \sqrt{\frac{1}{N}\sum \varepsilon_{i,h}^2} \qquad \text{MAE}_h = \frac{1}{N}\sum |\varepsilon_{i,h}|$$
 
-Both should monotically grow with horizon.
+Both should monotonically grow with horizon.
 
 - **RMSE** penalises large errors more; sensitive to outliers
-- **MAE** treats all errors equally; less sensitive to outliers; might not be consistent with all statistical procedure to investigate significance.
+- **MAE** treats all errors equally; more robust to outliers
 
-###### Python code:
 ```python
 accuracy = fe.compute_accuracy_statistics(data=data, k=12)
-fe.plot_accuracy(accuracy, variable="cpi",
-    metric="yoy", frequency="Q", statistic="rmse")
+
+accuracy.plot(
+    variable="cpisa", metric="yoy",
+    frequency="Q", statistic="rmse",
+)
 ```
 
 ---
 
 ## Benchmark models
 
-A **reference point** estimated with real-time vintages. 
+A **reference point** estimated with real-time vintages.
 
 **Random Walk:** $\hat{y}_{t+h|t} = y_t$
 
 **AR($p$):** $y_t = \mu + \sum_{i=1}^{p} \phi_i y_{t-i} + \varepsilon_t, \quad \varepsilon_t \sim t(\nu, 0, \sigma)$
 
 - Lag order $p \leq 2$ selected by BIC; stationarity enforced
-- **Student-$t$ errors** give heavier tails than Gaussian — large shocks like 2008 or 2022 don't distort lag selection or inflate the likelihood
-- Estimated with ML.
+- **Student-$t$ errors** — heavy tails prevent large shocks (2008, 2020) from distorting estimation
 
-###### Python code:
 ```python
-data.add_benchmarks(models=["AR", "random_walk"], metric="pop")
+data.add_benchmarks(
+    models=["AR", "random_walk"],
+    metric="pop",
+)
 ```
 
 ---
 
 ## Relative accuracy: beating the benchmark
 
-The **RMSE ratio** asks whether a forecast improves on a benchmark:
+$$\text{RMSE ratio}_h = \frac{\text{RMSE}^{\text{model}}_h}{\text{RMSE}^{\text{benchmark}}_h} \quad \begin{cases} < 1 & \text{model wins} \\ > 1 & \text{benchmark wins} \end{cases}$$
 
-$$\text{RMSE ratio}_h = \frac{\text{RMSE}^{\text{model}}_h}{\text{RMSE}^{\text{benchmark}}_h} \quad \begin{cases} < 1 & \text{model wins} \\ = 1 & \text{tie} \\ > 1 & \text{benchmark wins} \end{cases}$$
+The **Diebold-Mariano test** asks if the difference is *significant*.
+Define $d_t = \varepsilon^{A\,2}_{t,h} - \varepsilon^{B\,2}_{t,h}$ and test $H_0: \mathbb{E}[d_t] = 0$ with HAC standard errors. Harvey et al. (1997) small-sample correction applied.
 
-But is the difference *statistically significant*? The **Diebold-Mariano test** answers this.
-
-Define $d_t = \varepsilon^{A\,2}_{t,h} - \varepsilon^{B\,2}_{t,h}$. Test $H_0: \mathbb{E}[d_t] = 0$ with a HAC $t$-statistic — needed because at $h>1$ errors overlap. Harvey et al. (1997) small-sample correction applied.
-
-###### Python code:
 ```python
-comparison = fe.compare_to_benchmark(df=accuracy.to_df(),
-    benchmark_model="baseline ar(p) model", statistic="rmse")
+comparison = fe.compare_to_benchmark(
+    df=accuracy.to_df(),
+    benchmark_model="baseline ar(p) model",
+    statistic="rmse",
+)
 
-dm = fe.diebold_mariano_table(data=data,
-    benchmark_model="baseline ar(p) model")
-print(dm.to_df())
+dm = fe.diebold_mariano_table(
+    data=data,
+    benchmark_model="baseline ar(p) model",
+)
 ```
 
 ---
@@ -233,16 +284,19 @@ print(dm.to_df())
 
 $$\varepsilon_{t,h} = \beta + u_t, \quad H_0: \beta = 0$$
 
-$\hat\beta > 0$: forecasts **underestimate** outturns; $\hat\beta < 0$: **overestimate**. OLS with HAC standard errors (max lag $= h$).
+$\hat\beta > 0$: forecasts **underestimate** outturns; $\hat\beta < 0$: **overestimate**.
+OLS with HAC standard errors (max lag $= h$).
 
-**Mincer-Zarnowitz** — stronger joint test of no level or slope bias:
+**Mincer-Zarnowitz** — joint test of no level or slope bias:
 $$y_{t+h} = \beta_0 + \beta_1 \hat{y}_{t+h|t} + u_{t+h}, \quad H_0: \beta_0=0,\ \beta_1=1$$
 
-###### Python code:
 ```python
-bias = fe.bias_analysis(data=data)
-bias.plot(variable="cpi", metric="yoy", frequency="Q")
-print(bias.summary())
+bias = fe.bias_analysis(data=data, source="mpr", k=12)
+
+bias.plot(
+    variable="cpisa", metric="yoy",
+    frequency="Q",
+)
 ```
 
 ---
@@ -250,15 +304,14 @@ print(bias.summary())
 ## Efficiency: weak vs strong
 
 **Weak efficiency** — did the forecaster use their *own past forecasts*?
-If today's revision is predictable from last quarter's revision, information was incorporated gradually rather than immediately.
-*Clean identification*: the forecaster certainly saw their own past numbers — a rejection is hard to argue away.
+If today's revision is predictable from last quarter's, information was incorporated too slowly.
+*Clean identification*: the forecaster certainly had their own past numbers.
 
-**Strong efficiency** — did the forecaster use *all available information*, including other variables?
-Any signal known at forecast time should already be priced in; if errors in $y$ are predictable from something the forecaster knew, the forecast is inefficient.
-*Harder to test*: requires knowing what information was actually in the forecaster's set.
+**Strong efficiency** — did the forecaster use *all available information*?
+If errors in $y$ are predictable from anything the forecaster knew, the forecast is inefficient.
+*Harder to test*: requires knowing what was in the forecaster's information set.
 
-**Blanchard-Leigh** solves this by using the forecaster's *own concurrent forecast* of another variable $x$.
-Since they produced $\hat{x}$ themselves, they certainly had it — so this inherits the clean identification of weak efficiency while testing a richer information set. It reveals whether the *pass-through* from $x$ to $y$ was correctly specified.
+**Blanchard-Leigh** bridges the two: it uses the forecaster's *own forecast* of another variable $x$. Since they produced $\hat{x}$ themselves, they certainly had it — so it inherits the clean identification of weak efficiency while testing whether the *pass-through* from $x$ to $y$ was correctly specified.
 
 ---
 
@@ -268,11 +321,13 @@ A forecast is **weakly efficient** if past revisions cannot predict future revis
 
 $$R(y)_{t|t} = \alpha + \sum_{i=1}^{N} \beta_i R(y)_{t|t-i} + u_t, \quad H_0: \beta_1 = \cdots = \beta_N = 0$$
 
-Rejection → **information smoothing**: news incorporated gradually rather than immediately.
+Rejection signals **information smoothing**: news incorporated gradually.
 
-###### Python code:
 ```python
-we = fe.weak_efficiency_analysis(data=data)
+we = fe.weak_efficiency_analysis(
+    data=data, source="mpr", k=12,
+)
+
 print(we.to_df())
 ```
 
@@ -280,80 +335,89 @@ print(we.to_df())
 
 ## Efficiency: strong (Blanchard-Leigh)
 
-Errors in $y$ should be unpredictable from any concurrent forecast of $x$. **Wald ratio** $\omega = \beta/\delta$ measures misspecified pass-through:
+**Wald ratio** $\omega = \beta/\delta$ measures misspecified pass-through:
 
 $$\varepsilon(y)_{t+h|t} = \alpha + \beta\hat{x}_{t+j|t} + u \qquad x_{t+j} = \gamma + \delta\hat{x}_{t+j|t} + e$$
 
 $\omega > 0$: pass-through underestimated; $\omega < 0$: overestimated; $\omega = 0$: efficient.
 
-###### Python code:
 ```python
-bl = fe.blanchard_leigh_horizon_analysis(data=data,
-    source="BVAR",
-    outcome_variable="cpi", outcome_metric="yoy",
-    instrument_variable="gdpkp", instrument_metric="yoy")
+bl = fe.blanchard_leigh_horizon_analysis(
+    data=data, source="mpr",
+    outcome_variable="cpisa", outcome_metric="yoy",
+    instrument_variable="gdpkp", instrument_metric="yoy",
+)
+
 bl.plot()
 ```
 
 ---
 
-## Small samples: rolling and fluctuation tests
+## Unstable environments: the stationarity problem
 
-Full-sample tests miss regime changes. A **rolling window** of $W$ observations reveals *when* a problem emerged.
+All previous tests assume the data-generating process is **covariance-stationary** — the mean and autocovariance of the forecast error sequence do not change over time.
 
-The **fluctuation test** (Giacomini & Rossi, 2010) adjusts critical values for multiple testing across overlapping windows.
+In practice this often fails:
 
-###### Python code:
-```python
-rolling_bias = fe.rolling_analysis(data=data, window_size=16,
-    analysis_func=fe.bias_analysis, analysis_args={})
-rolling_bias.plot(variable="aweagg", horizons=[4, 8])
+- **Structural breaks** — policy regime changes, financial crises, pandemics shift the error distribution
+- **Evolving models** — forecasting frameworks are updated, creating non-stationary error dynamics
+- **Time-varying volatility** — the Great Moderation, post-COVID inflation
 
-rolling_dm = fe.rolling_analysis(data=data, window_size=16,
-    analysis_func=fe.diebold_mariano_table,
-    analysis_args={"benchmark_model": "baseline ar(p) model"})
-```
+A full-sample test averages over all regimes. A bias that appeared after 2020 is diluted by 15 years of unbiased forecasts — the test says "no problem" when the *current* forecast process is broken.
 
 ---
 
-## Some sniff tests
+## Unstable environments: rolling and fluctuation tests
 
-###### Python code:
+**Rolling window** ($W$ observations): re-run the test on every consecutive sub-sample. Reveals *when* a problem emerged or disappeared.
+
+**Fluctuation test** (Giacomini & Rossi, 2010): same rolling window, but with critical values adjusted for the multiple-testing nature of scanning across windows. The null is that the test is never rejected in any window.
+
 ```python
-# Hedgehog: each line = one vintage; dark line = outturns
-fe.plot_hedgehog(data=data, variable="cpi",
-    forecast_source="BVAR", metric="yoy", frequency="Q", k=12)
+rolling_bias = fe.rolling_analysis(
+    data=data, window_size=40,
+    analysis_func=fe.bias_analysis,
+    analysis_args={"k": 12},
+)
+rolling_bias.plot(variable="cpisa", horizons=[0, 4, 8])
 
-# Errors over time
-fe.plot_errors_across_time(data=data, variable="cpi",
-    metric="yoy", horizons=4, sources="BVAR",
-    frequency="Q", k=12, ma_window=4)
+fluct_bias = fe.fluctuation_tests(
+    data=data, window_size=40,
+    test_func=fe.bias_analysis,
+    test_args={"k": 12},
+)
 ```
 
 ---
-
 
 ## The dashboard
 
-All the functionalities of the package can be accessed easily through a built-in dashboard once you have created a `ForecastData` object with your outturns and forecasts.
+All the functionalities of the package can be accessed through a built-in dashboard.
 
-###### Python code:
 ```python
 import forecast_evaluation as fe
 
-forecast_data = fe.ForecastData(
-    forecasts_data=your_forecasts, outturns_data=your_outturns
+data = fe.ForecastData(
+    forecasts_data=your_forecasts,
+    outturns_data=your_outturns,
 )
 
-forecast_data.run_dashboard()
-
+data.run_dashboard()               # opens in browser
+data.run_dashboard(from_jupyter=True)  # embed in Jupyter
 ```
+
+---
+
+## Live demo
+
+### You can find the code for the demo here:
+[github.com/paullabonne/forecast_eval_teachin/demo.py](https://github.com/paullabonne/forecast_eval_teachin/blob/main/demo.py)
 
 ---
 
 ## Have question? Want something? Found a bug?
 <br>
 
-![GitHub Issue](github_issue.png)
+![GitHub Issue](images/github_issue.png)
 
 #### `Thank you!`
