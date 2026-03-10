@@ -77,6 +77,16 @@ style: |
 
 ---
 
+## A little bit about me
+
+- **Paul Labonne** — Senior researcher, Bank of England
+- Joined the Bank in 2025 before that at Imperial College, BI in Oslo, King's College London, NIESR.
+- Main research interests:
+  - *Macroeconomic forecasting* - temporal disaggregation; nowcasting; density forecasts; uncertainty modelling
+  - *Scientific modelling* - multimodality with R; Python modelling
+- `paul.labonne@bankofengland.co.uk`
+---
+
 ## Agenda
 
 <style scoped>table { font-size: 20px; }</style>
@@ -134,6 +144,12 @@ Each row answers: *"What value did source **S** assign to variable **Y** for per
 | `source` | Who produced it | `AR(p)`, `BVAR`, `SPF` |
 | `forecast_horizon` | Periods between vintage and date | `+4` = 4Q ahead; `−k` = revision |
 | `value` | The number itself | `0.064` |
+
+---
+
+## Why vintages matter: data revisions
+
+![w:800 center](images/outturn_revisions.png)
 
 ---
 
@@ -197,24 +213,27 @@ Standard errors in tests must therefore be HAC-robust (e.g. Newey-West with at l
 
 ## Some sniff tests
 
-```python
-# Hedgehog: each line = one vintage; dark line = outturns
-fe.plot_hedgehog(
-    data=data, variable="cpisa",
-    forecast_source="mpr", metric="yoy",
-    frequency="Q", k=12,
-)
-
-# Errors over time (with moving-average smoothing)
-fe.plot_errors_across_time(
-    data=data, variable="cpisa",
-    metric="yoy", horizons=4, sources="mpr",
-    frequency="Q", k=12, ma_window=4,
-)
-```
-
 - **Hedgehog chart**: overlay all forecast vintages against outturns — reveals persistent over/under-shooting
 - **Errors over time**: spot structural breaks, outlier episodes, trending errors
+- **Error density**: put individual errors in the context of the full distribution — highlights how unusual recent episodes are
+
+```python
+fe.plot_hedgehog(data=data, variable="aweagg",
+    forecast_source="mpr", metric="yoy", frequency="Q", k=12)
+
+fe.plot_errors_across_time(data=data, variable="cpisa",
+    metric="yoy", horizons=4, sources="mpr", frequency="Q", k=12)
+
+fe.plot_forecast_error_density(data=data, variable="cpisa", horizon=4,
+    metric="yoy", frequency="Q", source="mpr", k=12,
+    highlight_dates=pd.date_range("2022-01-01", "2024-12-31", freq="QE"))
+```
+
+---
+
+## Some sniff tests
+
+![w:350](images/hedgehog.png) ![w:400](images/errors_across_time.png) ![w:400](images/error_density.png)
 
 ---
 
@@ -238,6 +257,12 @@ accuracy.plot(
 
 ---
 
+## Accuracy: how large are the errors?
+
+![w:800 center](images/accuracy_rmse.png)
+
+---
+
 ## Benchmark models
 
 A **reference point** estimated with real-time vintages.
@@ -255,6 +280,12 @@ data.add_benchmarks(
     metric="pop",
 )
 ```
+
+---
+
+## Benchmark models
+
+![w:350](images/hedgehog_arp.png) ![w:350](images/hedgehog_rw.png)
 
 ---
 
@@ -280,6 +311,12 @@ dm = fe.diebold_mariano_table(
 
 ---
 
+## Relative accuracy: beating the benchmark
+
+![w:800 center](images/relative_accuracy.png)
+
+---
+
 ## Bias: mean error test
 
 $$\varepsilon_{t,h} = \beta + u_t, \quad H_0: \beta = 0$$
@@ -294,10 +331,16 @@ $$y_{t+h} = \beta_0 + \beta_1 \hat{y}_{t+h|t} + u_{t+h}, \quad H_0: \beta_0=0,\ 
 bias = fe.bias_analysis(data=data, source="mpr", k=12)
 
 bias.plot(
-    variable="cpisa", metric="yoy",
+    variable="aweagg", metric="yoy",
     frequency="Q",
 )
 ```
+
+---
+
+## Bias: mean error test
+
+![w:800 center](images/bias.png)
 
 ---
 
@@ -353,6 +396,12 @@ bl.plot()
 
 ---
 
+## Efficiency: strong (Blanchard-Leigh)
+
+![w:800 center](images/blanchard_leigh.png)
+
+---
+
 ## Unstable environments: the stationarity problem
 
 All previous tests require that the **object of interest is covariance-stationary** — its mean and autocovariance do not change over time. What that object is depends on the test: the forecast error for bias tests, the loss differential $d_t$ for Diebold-Mariano, revision sequences for weak efficiency, etc.
@@ -374,19 +423,20 @@ A full-sample test averages over all regimes. A bias that appeared after 2020 is
 **Fluctuation test** (Giacomini & Rossi, 2010): same rolling window, but with critical values adjusted for the multiple-testing nature of scanning across windows. The null is that the test is never rejected in any window.
 
 ```python
-rolling_bias = fe.rolling_analysis(
-    data=data, window_size=40,
-    analysis_func=fe.bias_analysis,
-    analysis_args={"k": 12},
-)
-rolling_bias.plot(variable="cpisa", horizons=[0, 4, 8])
-
 fluct_bias = fe.fluctuation_tests(
-    data=data, window_size=40,
+    data=data, window_size=16,
     test_func=fe.bias_analysis,
     test_args={"k": 12},
 )
+
+fluct_bias.plot(variable="aweagg", horizons=[1, 4], source="mpr")
 ```
+
+---
+
+## Unstable environments: rolling window with fluctuation tests
+
+![w:800 center](images/rolling_bias.png)
 
 ---
 
@@ -415,7 +465,7 @@ data.run_dashboard(from_jupyter=True)  # embed in Jupyter
 
 ---
 
-## Have question? Want something? Found a bug?
+## Have a question? Want something? Found a bug?
 <br>
 
 ![GitHub Issue](images/github_issue.png)
