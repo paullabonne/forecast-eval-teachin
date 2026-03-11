@@ -376,11 +376,36 @@ print(we.to_df())
 
 ---
 
-## Efficiency: strong (Blanchard-Leigh)
+## Efficiency: strong — the original Blanchard-Leigh (2013)
 
-**Wald ratio** $\omega = \beta/\delta$ measures misspecified pass-through:
+$$\varepsilon(y)_{t+h|t} = \alpha + \beta\hat{x}_{t+j|t} + u$$
+
+Suppose the forecaster thinks *"1pp more GDP growth → 0.3pp more inflation"*, but the true pass-through is 0.5pp. Then every time they forecast strong GDP, they'll underpredict inflation. Their inflation errors will be systematically correlated with their own GDP forecast.
+
+$\beta > 0$: pass-through underestimated; $\beta < 0$: overestimated; $\beta = 0$: efficient.
+
+```python
+bl = fe.strong_efficiency_analysis(
+    data=data, source="mpr",
+    outcome_variable="cpisa", outcome_metric="yoy",
+    instrument_variable="gdpkp", instrument_metric="yoy",
+)
+bl.plot()
+```
+
+---
+
+## Efficiency: strong — Kanngiesser and Willems (2024)
+
+The original was a single equation. Kanngiesser and Willems (2024) extend it with a **Wald ratio** $\omega = \beta/\delta$ that corrects for systematic errors in the instrument forecasts:
 
 $$\varepsilon(y)_{t+h|t} = \alpha + \beta\hat{x}_{t+j|t} + u \qquad x_{t+j} = \gamma + \delta\hat{x}_{t+j|t} + e$$
+
+**Equation 1**: do my forecasts of $x$ predict my errors in $y$? ($\beta \neq 0$ → problem)
+
+**Equation 2**: how informative is my forecast of $x$ about actual $x$? (scaling correction)
+
+$\omega = \beta/\delta$ isolates the pure pass-through misspecification: *for every 1pp of actual $x$ movement, how many pp did I get wrong about $y$?*
 
 $\omega > 0$: pass-through underestimated; $\omega < 0$: overestimated; $\omega = 0$: efficient.
 
@@ -390,7 +415,6 @@ bl = fe.blanchard_leigh_horizon_analysis(
     outcome_variable="cpisa", outcome_metric="yoy",
     instrument_variable="gdpkp", instrument_metric="yoy",
 )
-
 bl.plot()
 ```
 
@@ -404,15 +428,13 @@ bl.plot()
 
 ## Unstable environments: the stationarity problem
 
-All previous tests require that the **object of interest is covariance-stationary** — its mean and autocovariance do not change over time. What that object is depends on the test: the forecast error for bias tests, the loss differential $d_t$ for Diebold-Mariano, revision sequences for weak efficiency, etc.
+All previous tests require that the *object of interest* (mean, error difference, etc) is *covariance-stationary* — its mean and autocovariance do not change over time. 
 
 In practice this often fails:
 
 - **Structural breaks** — policy regime changes, financial crises, pandemics shift the distribution
 - **Evolving models** — forecasting frameworks are updated, changing error dynamics
 - **Time-varying volatility** — the Great Moderation, post-COVID inflation
-
-A full-sample test averages over all regimes. A bias that appeared after 2020 is diluted by 15 years of unbiased forecasts — the test says "no problem" when the *current* forecast process is broken.
 
 ---
 

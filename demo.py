@@ -1,24 +1,13 @@
+# %%
 """
 Forecast Evaluation Teachin — Live Demo Script
 Based on MTP No. 6 (Bank of England, January 2026)
 pip install forecast_evaluation
-
-Timing guide (total ~20 minutes):
-  Section 1: Loading and exploring       ~2 min
-  Section 2: Benchmark models            ~2 min
-  Section 3: Visualising forecasts       ~3 min
-  Section 4: Accuracy                    ~3 min
-  Section 5: Bias                        ~2 min
-  Section 6: Efficiency                  ~3 min
-  Section 7: Rolling analysis            ~2 min
-  Section 8: Extra labels                ~2 min
-  Section 9: Dashboard                   ~1 min
 """
 
 import forecast_evaluation as fe
 
-# =============================================================================
-# SECTION 1: Loading and exploring data                               (~3 min)
+# %% SECTION 1: Loading and exploring data (~3 min)
 # =============================================================================
 
 # Load the built-in 2026 Forecast Evaluation Report dataset
@@ -45,8 +34,7 @@ print(
     .to_string()
 )
 
-# =============================================================================
-# SECTION 2: Benchmark models                                         (~3 min)
+# %% SECTION 2: Benchmark models (~3 min)
 # =============================================================================
 
 # The FER dataset already ships with AR(p) and random walk benchmarks.
@@ -70,8 +58,7 @@ print("\nBefore add_benchmarks:", data_demo_benchmarks.forecasts["source"].uniqu
 data_demo_benchmarks.add_benchmarks(models=["AR", "random_walk"], metric="levels")
 print("After add_benchmarks:", data_demo_benchmarks.forecasts["source"].unique())
 
-# =============================================================================
-# SECTION 3: Visualising forecasts                                    (~4 min)
+# %% SECTION 3: Visualising forecasts (~4 min)
 # =============================================================================
 
 # Hedgehog plot — each line is a forecast vintage; the dark line is outturns
