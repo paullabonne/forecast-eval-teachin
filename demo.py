@@ -17,48 +17,11 @@ data = fe.ForecastData(load_fer=True)
 print(data)
 print("\nVariables:", data.forecasts["variable"].unique())
 print("Sources:", data.forecasts["source"].unique())
-print("Frequency:", data.forecasts["frequency"].unique())
-print("Shape:", data.forecasts.shape)
 
 # Focus on key macro variables
 data.filter(variables=["cpisa", "gdpkp", "aweagg"])
-print("\nAfter filter:", data.forecasts.shape)
 
-# Peek at the data structure
-print("\nData structure:")
-print(
-    data.forecasts[
-        ["date", "vintage_date", "variable", "source", "forecast_horizon", "value"]
-    ]
-    .head(10)
-    .to_string()
-)
-
-# %% SECTION 2: Benchmark models (~3 min)
-# =============================================================================
-
-# The FER dataset already ships with AR(p) and random walk benchmarks.
-# These were estimated in real-time: only data available at each vintage
-# is used — no look-ahead bias.
-print("\nSources (benchmarks already included):")
-print(data.forecasts["source"].unique())
-
-# For YOUR OWN data, you would add benchmarks like this:
-#   data.add_benchmarks(models=["AR", "random_walk"], metric="pop")
-# This estimates each model at every vintage — can take a few minutes.
-
-# Let's demonstrate on a fresh ForecastData with only user data:
-sample_outturns = fe.create_sample_outturns()
-sample_forecasts = fe.create_sample_forecasts()
-data_demo_benchmarks = fe.ForecastData(
-    outturns_data=sample_outturns,
-    forecasts_data=sample_forecasts,
-)
-print("\nBefore add_benchmarks:", data_demo_benchmarks.forecasts["source"].unique())
-data_demo_benchmarks.add_benchmarks(models=["AR", "random_walk"], metric="levels")
-print("After add_benchmarks:", data_demo_benchmarks.forecasts["source"].unique())
-
-# %% SECTION 3: Visualising forecasts (~4 min)
+# %% SECTION 2: Visualising forecasts
 # =============================================================================
 
 # Hedgehog plot — each line is a forecast vintage; the dark line is outturns
@@ -96,7 +59,7 @@ fe.plot_errors_across_time(
 )
 
 # =============================================================================
-# SECTION 4: Accuracy                                                 (~5 min)
+# SECTION 3: Accuracy                                                 (~5 min)
 # =============================================================================
 
 # Compute RMSE and MAE by variable, source, horizon
